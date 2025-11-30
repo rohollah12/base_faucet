@@ -185,10 +185,9 @@
   </div>
 
   <script>
-    // Your faucet contract
     const CONTRACT = "0x92abd0ED8D984e228ac34e9119B96b44076f4801";
     const BASE_RPC = "https://mainnet.base.org";
-    const CLAIM_SELECTOR = "0x4e71d92d"; // keccak256("claim()").slice(0, 4 bytes)
+    const CLAIM_SELECTOR = "0x4e71d92d"; // claim()
 
     const connectBtn = document.getElementById("connectButton");
     const claimBtn   = document.getElementById("claimButton");
@@ -198,7 +197,7 @@
     let currentAccount = null;
 
     function hexToEth(hex) {
-      if (!hex || !hex.startsWith("0x")) return "0";
+      if (!hex || !hex.startsWith("0x")) return "0.000000";
       const wei = BigInt(hex);
       const eth = Number(wei) / 1e18;
       return eth.toFixed(6);
@@ -206,37 +205,23 @@
 
     async function updateBalance() {
       try {
-        // Try wallet provider first if available, otherwise RPC
-        if (window.ethereum) {
-          const bal = await window.ethereum.request({
+        const res = await fetch(BASE_RPC, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
             method: "eth_getBalance",
             params: [CONTRACT, "latest"]
-          });
-          balanceEl.textContent = hexToEth(bal) + " ETH";
+          })
+        });
+        const json = await res.json();
+        const balHex = json.result || "0x0";
+        balanceEl.textContent = hexToEth(balHex) + " ETH";
 
-          if (bal === "0x0") {
-            claimBtn.disabled = true;
-            statusEl.textContent = "Faucet is currently out of funds. Please check back later.";
-          }
-        } else {
-          // Fallback: direct JSON-RPC
-          const res = await fetch(BASE_RPC, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              jsonrpc: "2.0",
-              id: 1,
-              method: "eth_getBalance",
-              params: [CONTRACT, "latest"]
-            })
-          });
-          const json = await res.json();
-          const bal = json.result || "0x0";
-          balanceEl.textContent = hexToEth(bal) + " ETH";
-          if (bal === "0x0") {
-            claimBtn.disabled = true;
-            statusEl.textContent = "Faucet is currently out of funds. Please check back later.";
-          }
+        if (balHex === "0x0") {
+          claimBtn.disabled = true;
+          statusEl.textContent = "Faucet is currently out of funds. Please check back later.";
         }
       } catch (e) {
         console.error(e);
@@ -256,9 +241,8 @@
         });
         currentAccount = accounts[0];
 
-        // Check network
         const chainId = await window.ethereum.request({ method: "eth_chainId" });
-        if (chainId !== "0x2105") { // 0x2105 = 8453 decimal
+        if (chainId !== "0x2105") { // 8453 decimal
           statusEl.textContent = "Please switch to Base network in your wallet.";
           claimBtn.disabled = true;
         } else {
@@ -283,19 +267,27 @@
       }
 
       try {
-        // Check faucet balance before sending
-        const bal = await window.ethereum.request({
-          method: "eth_getBalance",
-          params: [CONTRACT, "latest"]
+        // Double-check faucet has funds (via Base RPC)
+        const res = await fetch(BASE_RPC, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 2,
+            method: "eth_getBalance",
+            params: [CONTRACT, "latest"]
+          })
         });
-        if (bal === "0x0") {
-          claimBtn.disabled = true;
+        const json = await res.json();
+        if ((json.result || "0x0") === "0x0") {
           statusEl.textContent = "Faucet is currently out of funds. Please check back later.";
+          claimBtn.disabled = true;
           updateBalance();
           return;
         }
 
         statusEl.textContent = "Sending claim transaction...";
+
         const txHash = await window.ethereum.request({
           method: "eth_sendTransaction",
           params: [{
@@ -305,8 +297,7 @@
           }]
         });
 
-        statusEl.textContent = "Transaction sent: " + txHash.slice(0, 10) + "... Waiting for confirmation.";
-        // We don't poll for receipt here; just update balance after a delay
+        statusEl.textContent = "Transaction sent: " + txHash.slice(0, 12) + "... Waiting for confirmation.";
         setTimeout(updateBalance, 15000);
       } catch (e) {
         console.error(e);
@@ -314,17 +305,12 @@
       }
     });
 
-    // Initial balance fetch (read-only)
+    // Initial read-only balance on load
     updateBalance();
 
-    // React to wallet changes
     if (window.ethereum) {
-      window.ethereum.on("accountsChanged", () => {
-        window.location.reload();
-      });
-      window.ethereum.on("chainChanged", () => {
-        window.location.reload();
-      });
+      window.ethereum.on("accountsChanged", () => window.location.reload());
+      window.ethereum.on("chainChanged", () => window.location.reload());
     }
   </script>
 </body>
