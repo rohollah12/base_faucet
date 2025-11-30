@@ -4,10 +4,6 @@
   <meta charset="utf-8" />
   <title>Base ETH Faucet</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-
-  <!-- WORKING Ethers.js CDN (v6) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.6.4/ethers.umd.min.js"></script>
-
   <style>
     body {
       margin: 0;
@@ -36,4 +32,300 @@
       content: "";
       position: absolute;
       inset: -40%;
-      background: radial-gradient(circle at top
+      background: radial-gradient(circle at top right, rgba(80, 200, 255, 0.14), transparent 60%);
+      opacity: 0.9;
+      pointer-events: none;
+    }
+    .card-inner {
+      position: relative;
+      z-index: 1;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 1.5rem;
+      text-align: center;
+      letter-spacing: 0.03em;
+    }
+    p {
+      font-size: 0.9rem;
+      line-height: 1.4;
+      text-align: center;
+      color: #c8d0ff;
+      margin-top: 6px;
+      margin-bottom: 12px;
+    }
+    .hero {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 10px;
+    }
+    .faucet-art {
+      width: 120px;
+      height: 120px;
+    }
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      margin: 8px 0 12px;
+      font-size: 0.8rem;
+      color: #d1d6ff;
+    }
+    .info-label {
+      opacity: 0.8;
+    }
+    .info-value {
+      font-weight: 600;
+    }
+    .buttons {
+      text-align: center;
+      margin-top: 8px;
+    }
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 10px 18px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      margin: 6px 4px;
+      min-width: 170px;
+      transition: transform 0.08s ease, box-shadow 0.08s ease, opacity 0.1s ease;
+    }
+    button:active {
+      transform: translateY(1px) scale(0.99);
+      box-shadow: none;
+    }
+    #connectButton {
+      background: linear-gradient(135deg, #1c89ff, #52d5ff);
+      color: #fff;
+      box-shadow: 0 6px 14px rgba(0, 180, 255, 0.45);
+    }
+    #claimButton {
+      background: linear-gradient(135deg, #00c18f, #32e6b0);
+      color: #001015;
+      box-shadow: 0 6px 14px rgba(0, 170, 130, 0.45);
+    }
+    #claimButton:disabled {
+      opacity: 0.4;
+      cursor: default;
+      box-shadow: none;
+    }
+    #status {
+      margin-top: 10px;
+      font-size: 0.85rem;
+      min-height: 1.2em;
+      text-align: center;
+      color: #e0e4ff;
+      word-break: break-word;
+    }
+    small {
+      display: block;
+      margin-top: 8px;
+      font-size: 0.75rem;
+      color: #8f98d8;
+      text-align: center;
+    }
+    #contractAddress {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.72rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="card-inner">
+      <div class="hero">
+        <!-- Faucet artwork -->
+        <svg class="faucet-art" viewBox="0 0 160 160">
+          <defs>
+            <linearGradient id="metal" x1="0" x2="1" y1="0" y2="1">
+              <stop offset="0%" stop-color="#e5f0ff" />
+              <stop offset="50%" stop-color="#a8b7d8" />
+              <stop offset="100%" stop-color="#6f7aa0" />
+            </linearGradient>
+            <linearGradient id="water" x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stop-color="#64d8ff" />
+              <stop offset="100%" stop-color="#1ba8ff" />
+            </linearGradient>
+          </defs>
+          <rect x="30" y="40" width="80" height="20" rx="8" fill="url(#metal)" />
+          <rect x="90" y="60" width="20" height="40" rx="8" fill="url(#metal)" />
+          <rect x="74" y="90" width="52" height="16" rx="8" fill="url(#metal)" />
+          <rect x="50" y="26" width="40" height="10" rx="5" fill="#f4f7ff" />
+          <circle cx="70" cy="36" r="8" fill="#cad3ef" />
+          <circle cx="115" cy="112" r="7" fill="url(#water)" />
+          <circle cx="120" cy="128" r="6" fill="url(#water)" opacity="0.7" />
+        </svg>
+      </div>
+
+      <h1>Base ETH Faucet</h1>
+      <p>
+        Claim <strong>0.00001 ETH</strong> on Base every <strong>4 hours</strong>.<br/>
+        Connect your wallet and hit claim.
+      </p>
+
+      <div class="info-row">
+        <div>
+          <div class="info-label">Drip amount</div>
+          <div class="info-value">0.00001000 ETH</div>
+        </div>
+        <div>
+          <div class="info-label">Faucet balance</div>
+          <div class="info-value" id="balanceInfo">–</div>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="connectButton">Connect Wallet</button><br/>
+        <button id="claimButton" disabled>Claim 0.00001 ETH</button>
+      </div>
+      <div id="status"></div>
+      <small>Contract: <span id="contractAddress">0x92abd0ED8D984e228ac34e9119B96b44076f4801</span></small>
+    </div>
+  </div>
+
+  <script>
+    // Your faucet contract
+    const CONTRACT = "0x92abd0ED8D984e228ac34e9119B96b44076f4801";
+    const BASE_RPC = "https://mainnet.base.org";
+    const CLAIM_SELECTOR = "0x4e71d92d"; // keccak256("claim()").slice(0, 4 bytes)
+
+    const connectBtn = document.getElementById("connectButton");
+    const claimBtn   = document.getElementById("claimButton");
+    const statusEl   = document.getElementById("status");
+    const balanceEl  = document.getElementById("balanceInfo");
+
+    let currentAccount = null;
+
+    function hexToEth(hex) {
+      if (!hex || !hex.startsWith("0x")) return "0";
+      const wei = BigInt(hex);
+      const eth = Number(wei) / 1e18;
+      return eth.toFixed(6);
+    }
+
+    async function updateBalance() {
+      try {
+        // Try wallet provider first if available, otherwise RPC
+        if (window.ethereum) {
+          const bal = await window.ethereum.request({
+            method: "eth_getBalance",
+            params: [CONTRACT, "latest"]
+          });
+          balanceEl.textContent = hexToEth(bal) + " ETH";
+
+          if (bal === "0x0") {
+            claimBtn.disabled = true;
+            statusEl.textContent = "Faucet is currently out of funds. Please check back later.";
+          }
+        } else {
+          // Fallback: direct JSON-RPC
+          const res = await fetch(BASE_RPC, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: 1,
+              method: "eth_getBalance",
+              params: [CONTRACT, "latest"]
+            })
+          });
+          const json = await res.json();
+          const bal = json.result || "0x0";
+          balanceEl.textContent = hexToEth(bal) + " ETH";
+          if (bal === "0x0") {
+            claimBtn.disabled = true;
+            statusEl.textContent = "Faucet is currently out of funds. Please check back later.";
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        balanceEl.textContent = "error";
+      }
+    }
+
+    connectBtn.addEventListener("click", async () => {
+      if (!window.ethereum) {
+        statusEl.textContent = "No wallet detected. Install MetaMask or another Web3 wallet.";
+        return;
+      }
+
+      try {
+        const accounts = await window.ethereum.request({
+          method: "eth_requestAccounts"
+        });
+        currentAccount = accounts[0];
+
+        // Check network
+        const chainId = await window.ethereum.request({ method: "eth_chainId" });
+        if (chainId !== "0x2105") { // 0x2105 = 8453 decimal
+          statusEl.textContent = "Please switch to Base network in your wallet.";
+          claimBtn.disabled = true;
+        } else {
+          statusEl.textContent = "Wallet connected on Base.";
+          claimBtn.disabled = false;
+        }
+
+        connectBtn.disabled = true;
+        connectBtn.textContent = "Wallet Connected";
+
+        updateBalance();
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = e.message || "Connection failed.";
+      }
+    });
+
+    claimBtn.addEventListener("click", async () => {
+      if (!window.ethereum || !currentAccount) {
+        statusEl.textContent = "Connect your wallet first.";
+        return;
+      }
+
+      try {
+        // Check faucet balance before sending
+        const bal = await window.ethereum.request({
+          method: "eth_getBalance",
+          params: [CONTRACT, "latest"]
+        });
+        if (bal === "0x0") {
+          claimBtn.disabled = true;
+          statusEl.textContent = "Faucet is currently out of funds. Please check back later.";
+          updateBalance();
+          return;
+        }
+
+        statusEl.textContent = "Sending claim transaction...";
+        const txHash = await window.ethereum.request({
+          method: "eth_sendTransaction",
+          params: [{
+            from: currentAccount,
+            to: CONTRACT,
+            data: CLAIM_SELECTOR
+          }]
+        });
+
+        statusEl.textContent = "Transaction sent: " + txHash.slice(0, 10) + "... Waiting for confirmation.";
+        // We don't poll for receipt here; just update balance after a delay
+        setTimeout(updateBalance, 15000);
+      } catch (e) {
+        console.error(e);
+        statusEl.textContent = e.message || "Transaction failed.";
+      }
+    });
+
+    // Initial balance fetch (read-only)
+    updateBalance();
+
+    // React to wallet changes
+    if (window.ethereum) {
+      window.ethereum.on("accountsChanged", () => {
+        window.location.reload();
+      });
+      window.ethereum.on("chainChanged", () => {
+        window.location.reload();
+      });
+    }
+  </script>
+</body>
+</html>
